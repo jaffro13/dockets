@@ -94,16 +94,9 @@ async function getWorker(){if(worker)return worker;
 
 function parse(t){
   const num=s=>+s.replace(/[,.\s]/g,''),re=/(\d{1,3}(?:[,.\s]\d{3})+|\d{4,6})\s*k\s*g/i;
-  let g=0,ta=0,n=0;const vals=[];
-  for(const line of t.split('\n')){const m=line.match(re);if(!m)continue;const v=num(m[1]);vals.push(v);
-    if(/gross/i.test(line))g=v;else if(/tare/i.test(line))ta=v;else if(/\bn[e3]t\b/i.test(line))n=v}
-  const tm=t.match(/(\d{1,3})[.,](\d{2})\s*tonnes?/i),dt=tm?Math.round(+(tm[1]+'.'+tm[2])*1000):0;
-  let net=0,sure=false;
-  for(const a of vals)for(const b of vals)if(a>b&&vals.includes(a-b)&&(a-b)>1000){net=a-b;sure=true}
-  if(!net){const c=[n,g&&ta?g-ta:0,dt].filter(Boolean);
-    for(const v of c)if(c.filter(x=>Math.abs(x-v)<=5).length>=2){net=v;sure=true;break}
-    if(!net)net=n||c[0]||0}
-  return{net,gross:g,tare:ta,sure}}
+  let net=0,last=0;
+  for(const line of t.split('\n')){const m=line.match(re);if(!m)continue;last=num(m[1]);if(/\bn[e3]t\b/i.test(line))net=last}
+  return{net:net||last}}
 
 async function onPick(e){
   const f=e.target.files[0];e.target.value='';if(!f)return;
@@ -112,7 +105,7 @@ async function onPick(e){
   try{
     const c=await prep(f),w=await getWorker(),r=await w.recognize(c),t=r.data.text||'',p=parse(t);
     $('raw').textContent=t;$('ty').value=classify(t);$('nt').value=p.net||'';
-    $('rd').innerHTML=p.sure?'<span class="ok">✓ Weights agree (Gross − Tare = Net)</span>':'<span class="bad">⚠ Couldn’t confirm the weights. Check the net against the docket.</span>';
+    $('rd').textContent=p.net?'Check the net against your docket.':'Couldn’t find a net weight. Enter it below.';
     ok=true;
   }catch(err){$('raw').textContent='';$('ty').value='';$('nt').value='';$('rd').innerHTML='<span class="bad">Couldn’t read that photo ('+(err.message||err)+'). Enter it by hand.</span>'}
   fi.disabled=false;b.textContent='📷 Scan docket';$('st').textContent='';
